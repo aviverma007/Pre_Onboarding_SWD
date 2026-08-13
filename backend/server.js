@@ -1,7 +1,7 @@
 /* Pre-Onboarding SWD — standalone backend (Express + SQL Server).
    Auth: role logins (admin/hr/hod/interviewer) via /api/login; the frontend sends
    x-user-role / x-user-name headers on each request. Tables auto-create on boot. */
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const sql = require('mssql');
