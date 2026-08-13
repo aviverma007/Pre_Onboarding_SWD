@@ -69,13 +69,19 @@ function recForwardGate(cur, cands) {
 }
 
 async function initDb() {
-  // ensure database exists (connect to master, create if missing)
+  // Try to create the database if missing (needs elevated rights). If the login
+  // can't create databases, that's fine — pre-create it in SSMS and we'll just
+  // create the tables inside it.
   const master = { ...dbConfig, database: 'master' };
   try {
     const mp = await new sql.ConnectionPool(master).connect();
     await mp.request().query(`IF DB_ID('${dbConfig.database}') IS NULL CREATE DATABASE [${dbConfig.database}];`);
     await mp.close();
-  } catch (e) { console.warn('DB ensure skipped:', e.message); }
+    console.log(`   \u2713 Database "${dbConfig.database}" ready`);
+  } catch (e) {
+    console.warn(`   (auto-create of "${dbConfig.database}" skipped: ${e.message}) — will use it if it already exists`);
+  }
+  console.log(`   Connecting as ${dbConfig.user}@${dbConfig.server}:${dbConfig.port}/${dbConfig.database} ...`);
   const p = await getPool();
   await p.request().batch(`
 IF OBJECT_ID('dbo.Requirements','U') IS NULL
@@ -335,4 +341,9 @@ app.delete('/api/candidates/:cid/doc/:key', async (req, res) => {
 });
 
 initDb().then(() => app.listen(PORT, () => console.log(`Pre-Onboarding backend on :${PORT}`)))
-  .catch(err => { console.error('Startup failed:', err.message); process.exit(1); });
+  .catch(err => {
+    console.error('\nStartup failed:', err.message);
+    console.error('Check backend/.env — DB_SERVER/DB_PORT reachable, DB_USER/DB_PASSWORD correct, and the login has access to DB_DATABASE.');
+    console.error('If the login cannot CREATE DATABASE, pre-create it once in SSMS:  CREATE DATABASE ' + (process.env.DB_DATABASE || 'PreOnboardingDB') + ';\n');
+    process.exit(1);
+  });
